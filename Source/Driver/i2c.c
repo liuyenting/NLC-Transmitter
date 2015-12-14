@@ -1,12 +1,15 @@
+/* System header */
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Tiva Ware header */
 #include "inc/hw_i2c.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"
 
+/* Tiva Ware driver library */
 #include "driverlib/i2c.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
@@ -14,7 +17,11 @@
 
 #include "i2c.h"
 
-void i2c_init(void) {
+void i2c_busy_wait(uint32_t base) {
+	while(I2CMasterBusy(base));
+}
+
+void i2c_init(i2c_speed speed) {
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_I2C0);
 	SysCtlPeripheralReset(SYSCTL_PERIPH_I2C0);
 	
@@ -27,8 +34,19 @@ void i2c_init(void) {
  
     // Enable and initialize the I2C0 master module.  
 	// Use the system clock for the I2C0 module.  
-	// The last parameter sets the I2C data transfer rate. (T/F : 100/400kbps)
-    I2CMasterInitExpClk(I2C0_BASE, SysCtlClockGet(), false);
+	// The last parameter sets the I2C data transfer rate. (F/T : 100/400kbps)
+	switch(speed) {
+		case I2C_STANDARD:
+			I2CMasterInitExpClk(I2C0_BASE, SysCtlClockGet(), false);
+			break;
+		case I2C_FAST_MODE:
+			I2CMasterInitExpClk(I2C0_BASE, SysCtlClockGet(), true);
+			break;
+		case I2C_FAST_MODE_PLUS:
+			break;
+		case I2C_HIGH_SPEED_MODE: // TODO: Manual register control needed, I2CMRIS.
+			break;
+	}
      
     // Clear I2C FIFOs.
     HWREG(I2C0_BASE + I2C_O_FIFOCTL) = 80008000;
@@ -48,32 +66,29 @@ void i2c_send(uint8_t slave_addr, uint8_t num_of_args, ...)
     // If there is only one argument, we only need to send data once.
     if(num_of_args == 1) {
         I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_SINGLE_SEND);
-         
-        while(I2CMasterBusy(I2C0_BASE));
+        i2c_busy_wait(I2C0_BASE);
          
         va_end(vargs);
     } else {
         I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_SEND_START);
-         
-        while(I2CMasterBusy(I2C0_BASE));
+        i2c_busy_wait(I2C0_BASE);
          
         // Send num_of_args-2 pieces of data, using the BURST_SEND_CONT command.
-        for(uint8_t i = 1; i < (num_of_args - 1); i++)
+        for(uint8_t i = 1; i < (num_of_args-1); i++)
         {
             // Put next piece of data into I2C FIFO
             I2CMasterDataPut(I2C0_BASE, va_arg(vargs, uint32_t));
+			
             // Send next data that was just placed into FIFO
             I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_SEND_CONT);
-     
-            while(I2CMasterBusy(I2C0_BASE));
+			i2c_busy_wait(I2C0_BASE);
         }
      
         // Put last piece of data into I2C FIFO
         I2CMasterDataPut(I2C0_BASE, va_arg(vargs, uint32_t));
         I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_SEND_FINISH);
-
-        while(I2CMasterBusy(I2C0_BASE));
-         
+		i2c_busy_wait(I2C0_BASE);
+		
         va_end(vargs);
     }
 }
@@ -86,16 +101,43 @@ uint32_t i2c_receive(uint32_t slave_addr, uint8_t reg)
     I2CMasterDataPut(I2C0_BASE, reg);
     // Send control byte and register address byte to slave device
     I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_SEND_START);
-     
-    while(I2CMasterBusy(I2C0_BASE));
+    i2c_busy_wait(I2C0_BASE);
      
     // Specify that we are going to read from slave device.
     I2CMasterSlaveAddrSet(I2C0_BASE, slave_addr, true); 
     // Send control byte and read from the register we specified.
     I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_SINGLE_RECEIVE);
-     
-    while(I2CMasterBusy(I2C0_BASE));
+    i2c_busy_wait(I2C0_BASE);
      
     // Return data pulled from the specified register.
     return I2CMasterDataGet(I2C0_BASE);
+}
+
+void i2c_batch_receive(uint32_t slave_addr, uint8_t cmd, uint8_t num_of_dat, uint8_t *buf) {
+	if(cmd != 0x00) {
+		I2CMasterSlaveAddrSet(I2C0_BASE, slave_addr, false);
+		I2CMasterDataPut(I2C0_BASE, cmd);
+		
+		I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_SEND_START);
+		i2c_busy_wait(I2C0_BASE);
+	}
+	
+	// Specify to read from the slave device.
+	I2CMasterSlaveAddrSet(I2C0_BASE, slave_addr, true);
+	// Start batch read.
+	I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_RECEIVE_START);
+	i2c_busy_wait(I2C0_BASE);
+	
+	for(uint8_t i = 0; i < (num_of_dat-1); i++) {
+		buf[i] = I2CMasterDataGet(I2C0_BASE);
+		
+		I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_RECEIVE_CONT);
+		i2c_busy_wait(I2C0_BASE);
+	}
+	
+	// Receive last piece of data.
+	buf[num_of_dat-1] = I2CMasterDataGet(I2C0_BASE);
+	
+	I2CMasterControl(I2C0_BASE, I2C_MASTER_CMD_BURST_RECEIVE_FINISH);	
+	i2c_busy_wait(I2C0_BASE);
 }
