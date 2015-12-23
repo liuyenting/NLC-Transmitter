@@ -439,6 +439,21 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>System</GroupName>
+          <Files>
+            <File>
+              <FileName>timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Source\System\timer.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Source\System\uart.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>Tiva Ware</GroupName>
           <Files>
             <File>
