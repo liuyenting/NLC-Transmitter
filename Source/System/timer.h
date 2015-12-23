@@ -6,7 +6,4 @@
 void timer_init(uint32_t delay, void(*task)(void));
 void timer_start(void);
 
-// Function hook.
-void (*periodic_task)(void);
-
 #endif
