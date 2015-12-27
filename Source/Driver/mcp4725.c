@@ -21,7 +21,7 @@ void mcp4725_init(mcp4725 *dev, uint8_t dev_addr, i2c_speed speed) {
 		speed = I2C_FAST_MODE;
 	
 	// Store the value in the object.
-	dev->addr = (DEVICE_CODE << 4) | (dev_addr << 1);
+	dev->addr = dev_addr; //(DEVICE_CODE << 4) | (dev_addr << 1);
 	dev->speed = speed;
 	
 	i2c_init(dev->speed);
