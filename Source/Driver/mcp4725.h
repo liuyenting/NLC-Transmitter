@@ -28,11 +28,13 @@ Standard (one-shot):
 
 typedef struct {
 	uint8_t addr;
-	i2c_speed speed;
+	i2c_port port;
 } mcp4725;
 
-void mcp4725_init(mcp4725 *dev, uint8_t dev_addr, i2c_speed speed);
+void mcp4725_init(mcp4725 *dev, uint8_t dev_addr, i2c_port port, i2c_speed speed);
 void mcp4725_set_voltage(mcp4725 *dev, uint16_t volt, bool write_eeprom);
+/*
 void mcp4725_read_voltage(mcp4725 *dev, uint16_t *dac, uint16_t *eeprom);
+*/
 
 #endif
