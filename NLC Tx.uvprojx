@@ -371,7 +371,7 @@
             <vShortWch>0</vShortWch>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define></Define>
+              <Define>PART_TM4C123GH6PM</Define>
               <Undefine></Undefine>
               <IncludePath>C:\ti\TivaWare_C_Series-2.1.1.71</IncludePath>
             </VariousControls>

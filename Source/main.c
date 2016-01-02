@@ -46,7 +46,12 @@ int main(void) {
 	mcp4725_init(&(channels[CH_GREEN]), 0x60, I2C_PORT1, I2C_STANDARD);
 	mcp4725_init(&(channels[CH_BLUE]),	0x60, I2C_PORT2, I2C_STANDARD);
 	
-	uint8_t curr_channel = CH_GREEN;
+	uint8_t curr_channel = CH_RED;
+	
+	for(uint16_t i = 0; i <= 4000; i += 100)
+		mcp4725_set_voltage(&(channels[curr_channel]), i, false);
+	
+	return 0;
 	
 	while(1) {
 		//wait_timeout = true;
